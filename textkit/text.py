@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 
 def truncate(text, limit, suffix="..."):
@@ -9,6 +10,8 @@ def truncate(text, limit, suffix="..."):
 
 
 def slugify(text):
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode()
     text = text.strip().lower()
     text = re.sub(r"[^a-z0-9]+", "-", text)
     return text.strip("-")
