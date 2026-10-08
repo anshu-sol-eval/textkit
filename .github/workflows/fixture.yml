@@ -1,0 +1,38 @@
+name: fixture
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        required: true
+      pr:
+        required: false
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - if: inputs.task == 'dup-pr'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c unicode-slugs
+          python3 - <<'PY'
+          p = "textkit/text.py"
+          s = open(p).read()
+          s = s.replace("import re\n", "import re\nimport unicodedata\n", 1)
+          s = s.replace('def slugify(text):\n    text = text.strip().lower()',
+                        'def slugify(text):\n    text = unicodedata.normalize("NFKD", text)\n    text = text.encode("ascii", "ignore").decode()\n    text = text.strip().lower()')
+          open(p, "w").write(s)
+          PY
+          git commit -am "Transliterate accented characters in slugs"
+          git push origin unicode-slugs
+          url=$(gh pr create --base main --head unicode-slugs --title "Handle accented characters in slugs" --body "Slugs for titles like 'Café' lost letters. Normalize to ASCII first.")
+          gh pr comment "$url" --body "Thanks, but we want to keep non-ASCII letters (e.g. \`café\`) rather than stripping accents. Closing."
+          gh pr close "$url"
+      - if: inputs.task == 'tool-question'
+        run: gh pr review "${{ inputs.pr }}" --comment --body "Did you use an AI tool for this?"
